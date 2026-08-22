@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f172a,50:0891b2,100:6366f1&height=200&section=header&text=Hemant%20Kushwaha&fontSize=46&fontColor=ffffff&animation=fadeIn&desc=AI%20%26%20Full-Stack%20Engineer&descSize=18&descAlignY=62" width="100%" alt="Hemant Kushwaha — AI & Full-Stack Engineer" />
+<img src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-wide.webp" width="100%" alt="Hemant Kushwaha — a portrait reconstructed from terminal characters" />
 
 <img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=22&duration=3000&pause=800&color=06B6D4&center=true&vCenter=true&width=600&lines=I+build+retrieval-augmented+systems;RAG+pipelines+that+actually+ship;Next.js+%2B+FastAPI+%2B+Spring+Boot;LLMs+wired+into+real+infrastructure" alt="What I build" />
 
@@ -123,6 +123,12 @@ flies to it, and it opens a real section of the site. Deployed to the edge.
 <div align="center">
 
 <br />
+
+<sub>The portrait at the top is generated from a photograph by <a href="./ascii-portrait"><b>ascii-portrait</b></a> —<br />
+a Python pipeline that maps brightness onto a glyph ramp ordered by <i>measured</i> ink coverage,<br />
+then animates the characters assembling themselves into the image. <a href="./ascii-portrait/README.md">How it works →</a></sub>
+
+<br /><br />
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/output/snake-dark.svg" />
