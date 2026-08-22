@@ -134,3 +134,63 @@ pip install pillow numpy opencv-python imageio-ffmpeg
 The font path in `RenderConfig.font_path` points at Consolas; on Linux or macOS
 point it at any monospace TTF (DejaVu Sans Mono and Menlo both work) and the
 ramp will re-measure itself.
+
+---
+
+## Embedding it in a README
+
+The assets are published in this repo, so they already have stable raw URLs:
+
+```
+https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/<file>
+```
+
+**Full-width hero** — what this profile uses at the top:
+
+```html
+<img src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-wide.webp"
+     width="100%" alt="Hemant Kushwaha — a portrait reconstructed from terminal characters" />
+```
+
+**Centred square** — good above a project README, or as a section break:
+
+```html
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-square.webp"
+       width="360" alt="Hemant Kushwaha" />
+</div>
+```
+
+**Small inline** — cheap enough to sit beside body text:
+
+```markdown
+![Hemant Kushwaha](https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-small.webp)
+```
+
+**With a GIF fallback**, if you want to cover a client that refuses WebP. Only
+one file is ever downloaded:
+
+```html
+<picture>
+  <source type="image/webp" srcset="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-square.webp" />
+  <img src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-square.gif"
+       width="360" alt="Hemant Kushwaha" />
+</picture>
+```
+
+### Things worth knowing
+
+- **Set a `width`.** Without one the square renders at its full 600 px, which
+  is larger than most READMEs want.
+- **GitHub will not play the MP4 inline.** Markdown `<video>` tags are stripped.
+  Drag the `.mp4` into an issue or PR comment and GitHub hosts and plays it —
+  that is the path for LinkedIn, slides, or anywhere video is preferred.
+- **Always keep `alt` text.** It is the only thing a screen reader gets, and the
+  portrait carries the identity of the page.
+- **Avatars are a separate upload.** GitHub's avatar pipeline re-encodes what
+  you give it and animation is not dependable there; the README is the surface
+  where this reliably plays. `portrait-small.gif` is the one to try if you want
+  to experiment.
+- **Regenerating rewrites ~10 MB of binaries.** Git keeps every version
+  forever, so avoid committing a fresh render on every tweak — check
+  `--preview` output first, then encode once.
