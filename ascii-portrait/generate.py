@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import core
 import encode
 import render
+import terminal
 
 # The character set from the brief, ordered lightest-to-densest by measured ink
 # coverage. core.measure_ramp() recomputes this for any other font.
@@ -66,6 +67,14 @@ PRESETS = {
         gif_colors=16, webp_quality=60, crf=23,
         text=("HEMANT", "KUSHWAHA", "AI & FULL-STACK"),
         formats=("webp", "mp4"),
+    ),
+    "boot": dict(
+        out_size=(600, 600),
+        cols=120, cell=(5, 9), frames=100, fps=12.5,
+        head_room=2.10, face_bias=0.09,
+        boot=True,
+        gif_colors=16, webp_quality=62, crf=23,
+        formats=("webp", "gif", "mp4"),
     ),
     "small": dict(
         out_size=(320, 320),
@@ -182,6 +191,8 @@ def build(name: str, image: str, outdir: Path, formats=None, preview=False):
         glitch_amount=0.45,
     )
 
+    boot_cfg = terminal.BootConfig() if p.get("boot") else None
+
     t0 = time.time()
     if preview:
         still = render.render_frames(grid, CHARSET, rc, still=True)
@@ -191,7 +202,18 @@ def build(name: str, image: str, outdir: Path, formats=None, preview=False):
         print(f"  {name:6} preview {W}x{H}  {time.time() - t0:.1f}s  -> {path.name}")
         return
 
-    frames = render.render_frames(grid, CHARSET, rc)
+    if boot_cfg is not None:
+        layout_cache = {}
+
+        def boot_draw(bw, bh, progress, blink):
+            key = (bw, bh)
+            if key not in layout_cache:
+                layout_cache[key] = terminal.plan(boot_cfg, bw, bh)
+            return terminal.draw(layout_cache[key], boot_cfg, bw, bh, progress, blink)
+
+        frames = render.render_boot_loop(grid, CHARSET, rc, boot_draw)
+    else:
+        frames = render.render_frames(grid, CHARSET, rc)
     frames = encode.pad_to(frames, (W, H))
     seam = float(np.abs(frames[0].astype(int) - frames[-1].astype(int)).mean())
     print(f"  {name:6} {W}x{H} {len(frames)}f @{p['fps']}fps "

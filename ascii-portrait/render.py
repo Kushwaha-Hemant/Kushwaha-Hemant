@@ -179,6 +179,58 @@ def _glitch(rgb: np.ndarray, amt: float, rng) -> np.ndarray:
     return out
 
 
+def blit(atlas: np.ndarray, idx: np.ndarray, inten: np.ndarray) -> np.ndarray:
+    """Character grid -> intensity image, in one vectorised step.
+
+    ``atlas[idx]`` gives (rows, cols, cell_h, cell_w); the transpose interleaves
+    cell rows with pixel rows so the reshape lands every glyph in place. This is
+    why a frame costs one fancy-index instead of thousands of draw calls.
+    """
+    tiles = atlas[idx] * inten[:, :, None, None]
+    rows, cols, chh, cw = tiles.shape
+    return tiles.transpose(0, 2, 1, 3).reshape(rows * chh, cols * cw)
+
+
+class Compositor:
+    """Pixel-side pipeline shared by the portrait and the boot log.
+
+    bloom -> colour ramp -> scanlines -> vignette -> glitch -> grain. Both
+    stages run through this so the CRT treatment is identical and the handoff
+    between them is invisible.
+    """
+
+    def __init__(self, cfg: RenderConfig, H: int, W: int):
+        self.cfg, self.H, self.W = cfg, H, W
+        self.lut = _ramp_lut(cfg)
+        yy = np.arange(H, dtype=np.float32)
+        self.scan = (
+            1.0 - cfg.scanline * 0.5
+            * (1.0 + np.cos(2.0 * np.pi * yy / max(cfg.scanline_period, 1)))
+        ).astype(np.float32)[:, None, None]
+        yv, xv = np.mgrid[0:H, 0:W].astype(np.float32)
+        vx = (xv / max(W - 1, 1) - 0.5) / 0.72
+        vy = (yv / max(H - 1, 1) - 0.46) / 0.76
+        self.vig = np.clip(
+            1.0 - cfg.vignette * np.clip(np.sqrt(vx * vx + vy * vy) - 0.52, 0, 2) ** 1.4,
+            0, 1,
+        ).astype(np.float32)[..., None]
+
+    def __call__(self, img: np.ndarray, glitch_amt: float = 0.0, fseed: int = 0):
+        cfg = self.cfg
+        if cfg.bloom > 0:
+            img = img + cfg.bloom * cv2.GaussianBlur(img, (0, 0), cfg.cell_h * 0.85)
+        img = np.clip(img, 0.0, 1.0)
+        rgb = self.lut[(img * 255).astype(np.uint8)] * self.scan * self.vig
+        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
+        if glitch_amt > 0.02:
+            rgb = _glitch(rgb, glitch_amt, np.random.default_rng(cfg.seed + 100 + fseed))
+        if cfg.grain > 0:
+            gseed = cfg.seed + 500 + (0 if cfg.grain_static else fseed)
+            g = np.random.default_rng(gseed).normal(0, cfg.grain * 255, (self.H, self.W, 1))
+            rgb = np.clip(rgb.astype(np.float32) + g, 0, 255).astype(np.uint8)
+        return rgb
+
+
 def resolve_target(grid: dict, ramp: str, cfg: RenderConfig, atlas=None):
     """Final glyph per cell, plus a per-cell brightness correction.
 
@@ -224,40 +276,12 @@ def render_frames(grid: dict, ramp: str, cfg: RenderConfig, still: bool = False)
     lut = _ramp_lut(cfg)
 
     H, W = rows * cfg.cell_h, cols * cfg.cell_w
-    yy_px = np.arange(H, dtype=np.float32)
-    scan_mul = (
-        1.0
-        - cfg.scanline
-        * 0.5
-        * (1.0 + np.cos(2.0 * np.pi * yy_px / max(cfg.scanline_period, 1)))
-    ).astype(np.float32)[:, None, None]
-
-    yv, xv = np.mgrid[0:H, 0:W].astype(np.float32)
-    vx = (xv / max(W - 1, 1) - 0.5) / 0.72
-    vy = (yv / max(H - 1, 1) - 0.46) / 0.76
-    vig = np.clip(
-        1.0 - cfg.vignette * np.clip(np.sqrt(vx * vx + vy * vy) - 0.52, 0, 2) ** 1.4, 0, 1
-    ).astype(np.float32)[..., None]
-
+    comp = Compositor(cfg, H, W)
     row_norm = (np.arange(rows, dtype=np.float32) / max(rows - 1, 1))[:, None]
     gs, ge = PHASES["glitch"]
 
     def compose(idx, inten, glitch_amt, fseed):
-        tiles = atlas[idx] * inten[:, :, None, None]
-        img = tiles.transpose(0, 2, 1, 3).reshape(H, W)
-        if cfg.bloom > 0:
-            img = img + cfg.bloom * cv2.GaussianBlur(img, (0, 0), cfg.cell_h * 0.85)
-        img = np.clip(img, 0.0, 1.0)
-        rgb = lut[(img * 255).astype(np.uint8)]
-        rgb = rgb * scan_mul * vig
-        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
-        if glitch_amt > 0.02:
-            rgb = _glitch(rgb, glitch_amt, np.random.default_rng(cfg.seed + 100 + fseed))
-        if cfg.grain > 0:
-            gseed = cfg.seed + 500 + (0 if cfg.grain_static else fseed)
-            g = np.random.default_rng(gseed).normal(0, cfg.grain * 255, (H, W, 1))
-            rgb = np.clip(rgb.astype(np.float32) + g, 0, 255).astype(np.uint8)
-        return rgb
+        return comp(blit(atlas, idx, inten), glitch_amt, fseed)
 
     if still:
         return [compose(target, base_int, 0.0, 0)]
@@ -300,4 +324,92 @@ def render_frames(grid: dict, ramp: str, cfg: RenderConfig, still: bool = False)
             u = (t - gs) / max(ge - gs, 1e-6)
             gl = float(np.sin(np.pi * u) ** 1.5) * cfg.glitch_amount
         frames.append(compose(idx, inten.astype(np.float32), gl, f))
+    return frames
+
+
+# --- boot-prologue variant ------------------------------------------------
+# A longer loop: terminal log types out, hands over to the character field,
+# the portrait resolves, holds, glitches, dissolves. Both ends are black, so
+# it still wraps seamlessly.
+BOOT_PHASES = {
+    "black": (0.00, 0.03),
+    "type": (0.03, 0.38),
+    "ready": (0.38, 0.45),
+    "handoff": (0.45, 0.52),
+    "resolve": (0.52, 0.72),
+    "hold": (0.72, 0.86),
+    "glitch": (0.86, 0.91),
+    "dissolve": (0.91, 0.975),
+    "fade": (0.975, 1.00),
+}
+BOOT_ALPHA = [(0.00, 0.0), (0.05, 1.0), (0.45, 1.0), (0.52, 0.0), (1.00, 0.0)]
+BOOT_REVEAL = [(0.00, 0.0), (0.52, 0.0), (0.72, 1.0), (0.91, 1.0), (0.975, 0.0), (1.00, 0.0)]
+BOOT_DENSITY = [(0.00, 0.05), (0.50, 0.72), (0.90, 0.72), (0.99, 0.08), (1.00, 0.05)]
+BOOT_FIELD = [(0.00, 0.0), (0.45, 0.0), (0.53, 1.0), (0.965, 1.0), (1.00, 0.0)]
+
+CURSOR_FRAMES = 8       # blink period; keep cfg.frames a multiple of this
+
+
+def cell_state(f, reveal, density, field, target, base_int, settle,
+               noise_idx, noise_life, cfg):
+    """Glyph index and intensity per cell for one frame."""
+    step = (f // max(cfg.noise_hold, 1)) % noise_idx.shape[0]
+    nidx, nlife = noise_idx[step], noise_life[step]
+
+    settled = settle < reveal
+    alive = nlife < density
+    idx = np.where(settled, target, nidx)
+
+    inten = np.where(settled, base_int, 0.34 + 0.30 * nlife).astype(np.float32)
+    if 0.0 < reveal < 1.0:                       # bright wavefront on new cells
+        age = (reveal - settle) / max(cfg.front_width, 1e-6)
+        inten = inten + np.where(settled, np.clip(1.0 - age, 0.0, 1.0) * 0.85, 0.0)
+    if cfg.shimmer > 0 and reveal >= 1.0:
+        inten = np.where((nlife < cfg.shimmer) & settled, inten * 1.55, inten)
+    return idx, inten, (settled | alive), field
+
+
+def render_boot_loop(grid: dict, ramp: str, cfg: RenderConfig, boot_draw=None):
+    """Boot log, handoff, portrait, glitch, dissolve -- one seamless loop.
+
+    ``boot_draw(width, height, progress, blink)`` returns a float32 intensity
+    buffer for the terminal layer. Passing it in rather than importing the
+    terminal module keeps this file free of any dependency on it.
+    """
+    rows, cols = grid["rows"], grid["cols"]
+    atlas = build_atlas(ramp, cfg)
+    target, comp_ratio = resolve_target(grid, ramp, cfg, atlas)
+    base_int = 0.30 + 0.70 * grid["luma"]
+    base_int = np.clip(
+        base_int * comp_ratio * (1.0 + 0.18 * grid["mag"]), 0.0, 2.2
+    ).astype(np.float32)
+
+    settle = build_settle(grid, cfg)
+    noise_idx, noise_life = build_noise_stack(grid, len(ramp), cfg)
+
+    H, W = rows * cfg.cell_h, cols * cfg.cell_w
+    comp = Compositor(cfg, H, W)
+    t0, t1 = BOOT_PHASES["type"]
+    gs, ge = BOOT_PHASES["glitch"]
+
+    frames = []
+    for f in range(cfg.frames):
+        t = f / cfg.frames
+        idx, inten, show, field = cell_state(
+            f, curve(t, BOOT_REVEAL), curve(t, BOOT_DENSITY), curve(t, BOOT_FIELD),
+            target, base_int, settle, noise_idx, noise_life, cfg,
+        )
+        img = blit(atlas, idx, (inten * show.astype(np.float32) * field).astype(np.float32))
+
+        alpha = curve(t, BOOT_ALPHA)
+        if alpha > 0.002 and boot_draw is not None:
+            p = float(np.clip((t - t0) / max(t1 - t0, 1e-6), 0.0, 1.0))
+            blink = (f % CURSOR_FRAMES) / float(CURSOR_FRAMES)
+            img = np.maximum(img, boot_draw(W, H, p, blink) * alpha)
+
+        gl = 0.0
+        if gs <= t < ge:
+            u = (t - gs) / max(ge - gs, 1e-6)
+            gl = float(np.sin(np.pi * u) ** 1.5) * cfg.glitch_amount
+        frames.append(comp(img, gl, f))
     return frames
