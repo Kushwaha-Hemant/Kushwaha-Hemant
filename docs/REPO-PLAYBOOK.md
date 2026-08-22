@@ -153,7 +153,8 @@ no RLS anywhere, revoked with deny-by-default RLS added. 29 tests and CI added.
   have the right to relicense.
 - No Dockerfile - for a project described as "self-hosted", a reviewer will
   look for one.
-- No rate limiting on the ingestion or chat endpoints.
+*(Rate limiting added: 30 chat / 20 ingestion calls per minute, keyed on the
+Clerk user id, 8 tests.)*
 
 ---
 
@@ -241,11 +242,12 @@ unless both are set, are 32+ characters, are not a known placeholder, and differ
 from each other (8 tests; mutation-verified, restoring the old defaults fails 5
 of them). `npm test` works because tests now exist. eslint installed in both
 workspaces, whose `lint` scripts had referenced a dependency neither declared.
+Socket subscriptions to build and project rooms are now authorised through the
+same helpers the REST layer uses - the handshake proved *who* was calling but
+never *what* they could see. Unexpected error text no longer reaches clients in
+production. 18 tests.
 
 **WONTFIX-YET**
-- Unauthenticated Socket.IO room subscription — any client can join any build
-  room and read its logs.
-- Internal error messages are returned to clients.
 - `vitest` is installed, `npm test` is wired, CI runs a test step, and **zero
   spec files exist**, so `npm test` exits 1. Either add tests or drop the step —
   a red CI badge is worse than none.
@@ -320,12 +322,12 @@ flowchart TB
 - All randomness from a seeded PRNG, so the scene is byte-identical each load.
 - The render loop halts when the hero scrolls out of view.
 
-**Fixed:** MIT `LICENSE` added.
+**Fixed:** MIT `LICENSE` added. `/api/ai` now rate-limited (12/min per IP) with
+message-count and character caps, since it is unauthenticated and calls a paid
+API. `/api/contact` no longer writes the sender's name, email or message to the
+Cloudflare logs. 10 tests, CI added.
 
 **WONTFIX-YET**
-- Both public API routes are unauthenticated with no rate limiting — the single
-  most important fix, since one of them calls a paid API.
-- `api/contact/route.ts` writes the sender's name, email and message to logs.
 - README lists GSAP; it isn't a dependency. The theme switcher persists a value
   nothing reads.
 
@@ -348,9 +350,9 @@ Android, static analysis and backend jobs all pass.
 - "The JWT secret must decode to at least 32 bytes; the app refuses to start" -
   implemented in `JwtService`, covered by `shortSecretIsRejectedAtConstruction`.
 
-**Discrepancies - reported, not changed**
-- README says "14 modules"; `settings.gradle.kts` declares **16**
-  (`:app`, 4 `:core:*`, 11 `:feature:*`).
+**Discrepancies - reported, then fixed on approval**
+- README said "14 modules"; `settings.gradle.kts` declares **16**
+  (`:app`, 4 `:core:*`, 11 `:feature:*`). Corrected.
 - `application.yml` defaults `SPENDEE_JWT_SECRET` to a committed value decoding
   to 51 bytes, so it passes the length guard. An unset variable in production
   would sign with a published secret - the same class of problem DevFlow had,
