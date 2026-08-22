@@ -5,7 +5,12 @@ project, plus the setup and troubleshooting notes for this profile repo.
 
 Every diagram below was drawn from an audit that read the actual code — not
 from the repository's own README. Where the two disagree, the code wins, and
-the disagreement is listed under **Fix before a recruiter reads this**.
+the disagreement is listed below.
+
+**Status: these findings have been worked through.** All five featured
+repositories now have green CI. Items still open are marked WONTFIX-YET;
+everything else previously listed here as a problem has been fixed and verified.
+See each repository's history for the individual commits.
 
 ---
 
@@ -134,18 +139,21 @@ flowchart TB
 - OR-joined `tsquery` construction, with an in-code comment explaining why
   `plainto_tsquery` was wrong for this use.
 
-**Fix before a recruiter reads this**
-- **Licensing — blocker.** No `LICENSE`, and the README itself notes the client
+**Fixed:** IDOR (chunk query now joins `project_documents` and constrains
+`d.project_id`); SSRF (`server/urlguard.py` resolves every host, rejects private
+/ loopback / link-local / reserved targets, and re-validates every redirect
+hop); a PostgREST grant that gave `authenticated` full DML on every table with
+no RLS anywhere, revoked with deny-by-default RLS added. 29 tests and CI added.
+`/health` wording corrected.
+
+**WONTFIX-YET**
+- **Licensing - blocker.** No `LICENSE`, and the README itself notes the client
   scaffold came from a paid course "without an explicit grant." Resolve the
   provenance before adding any licence. Do not apply MIT to code you may not
   have the right to relicense.
-- **IDOR** — `server/api.py:272-290` returns chunk contents without an ownership
-  check.
-- **SSRF** — URL ingestion in `server/routes/files.py` fetches arbitrary URLs.
-- README says 8 partitioners; there are 6. README says `GET /health` reports the
-  loaded embedding model; it does not.
-- No tests, no CI, no Dockerfile — for a project described as "self-hosted",
-  the missing container story is the first thing a reviewer will notice.
+- No Dockerfile - for a project described as "self-hosted", a reviewer will
+  look for one.
+- No rate limiting on the ingestion or chat endpoints.
 
 ---
 
@@ -183,16 +191,15 @@ flowchart TB
   coach report don't need the same model.
 - `otp.py` states its threat model in the docstring before the code.
 
-**Fix first**
-- README ends with "## License / MIT" — now backed by a real `LICENSE` file.
-- `frontend/.env.local.example` is missing, so the README quick start
-  (`cp .env.local.example .env.local`) fails on a clean clone. **Highest-value
-  five-minute fix in the whole portfolio.**
-- Stack line lists Redis; nothing uses it. `alembic` is pinned with no
-  migrations directory.
-- `docker-compose.yml` provisions only Postgres and Redis — `docker compose up`
-  does not start the product.
-- 20 tests pass and nothing runs them. Add CI.
+**Fixed:** `.env.local.example` added - it had been impossible to commit, since
+Next.js's default `.gitignore` matches `.env*` with no exception and silently
+dropped it. Redis and Alembic removed (declared, provisioned, pinned, used by
+nothing). MIT `LICENSE` added. CI runs 20 backend tests plus frontend lint,
+typecheck and build. Two setState-inside-effect errors fixed.
+
+**WONTFIX-YET**
+- `docker-compose.yml` provisions only Postgres - `docker compose up` still does
+  not start the product itself.
 
 ---
 
@@ -229,9 +236,13 @@ flowchart TB
   mid-build resumes without gaps or duplicates.
 - A signed JWT used as the OAuth `state` parameter, carrying the linking user id.
 
-**Fix first**
-- **Default JWT secrets** in `server/src/config/env.ts:15-16` are usable in
-  production. Fail startup instead of falling back.
+**Fixed:** default JWT secrets no longer apply in production - startup fails
+unless both are set, are 32+ characters, are not a known placeholder, and differ
+from each other (8 tests; mutation-verified, restoring the old defaults fails 5
+of them). `npm test` works because tests now exist. eslint installed in both
+workspaces, whose `lint` scripts had referenced a dependency neither declared.
+
+**WONTFIX-YET**
 - Unauthenticated Socket.IO room subscription — any client can join any build
   room and read its logs.
 - Internal error messages are returned to clients.
@@ -271,15 +282,17 @@ flowchart LR
 - `requirements.txt` pins the CPU-only torch wheel index, with a comment saying
   why. Small detail; reviewers notice it.
 
-**Fix first**
+**Fixed:** CI runs the suite on every push and pull request - all **20** tests
+pass with no API key, more than the 12 originally estimated. MIT `LICENSE` added.
+
+**WONTFIX-YET**
 - A silent zero-score failure path: when analysis fails the UI shows 0 rather
   than an error.
 - The reranker is close to a no-op — either make it real or stop advertising
   "retrieve → rerank."
 - README lists Docker as a deployment target; there is no Dockerfile.
 - OCR is described as scaffolded; it is unreachable.
-- 20 tests exist and 12 run with no API key — a 30-line pytest workflow earns a
-  green badge immediately.
+
 
 ---
 
@@ -307,7 +320,9 @@ flowchart TB
 - All randomness from a seeded PRNG, so the scene is byte-identical each load.
 - The render loop halts when the hero scrolls out of view.
 
-**Fix first**
+**Fixed:** MIT `LICENSE` added.
+
+**WONTFIX-YET**
 - Both public API routes are unauthenticated with no rate limiting — the single
   most important fix, since one of them calls a paid API.
 - `api/contact/route.ts` writes the sender's name, email and message to logs.
@@ -320,12 +335,26 @@ flowchart TB
 
 Android + Spring Boot monorepo, actively in development.
 
-> Not independently audited in this pass — the audit agent did not return.
-> Treat the description below as carried over from the existing README rather
-> than code-verified.
+Verified directly: 89 Kotlin files (~16,600 lines), 28 Java files (~2,300),
+16 Gradle modules, 2 test classes (15 + 9 assertions).
 
-Its README already separates built from planned, which is the right pattern.
-Keep that, and add the architecture diagram once the module boundaries settle.
+**Fixed:** CI had been red since 2026-08-04. All three lint errors were the same
+`FullBackupContent` violation - an `<exclude>` naming a path in a domain never
+`<include>`d, which auto-backup already excludes by construction. Removed;
+Android, static analysis and backend jobs all pass.
+
+**Verified accurate**
+- "`core:common` ... 15 tests pass" - exactly 15 `@Test` methods.
+- "The JWT secret must decode to at least 32 bytes; the app refuses to start" -
+  implemented in `JwtService`, covered by `shortSecretIsRejectedAtConstruction`.
+
+**Discrepancies - reported, not changed**
+- README says "14 modules"; `settings.gradle.kts` declares **16**
+  (`:app`, 4 `:core:*`, 11 `:feature:*`).
+- `application.yml` defaults `SPENDEE_JWT_SECRET` to a committed value decoding
+  to 51 bytes, so it passes the length guard. An unset variable in production
+  would sign with a published secret - the same class of problem DevFlow had,
+  which a length check alone does not catch.
 
 ---
 
