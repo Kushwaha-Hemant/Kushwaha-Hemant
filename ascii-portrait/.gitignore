@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+# Source photographs stay local; only the rendered portrait is published.
+*.jpg
+*.jpeg
+*.png
+!../assets/preview-*.png
