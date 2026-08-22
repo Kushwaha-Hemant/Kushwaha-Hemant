@@ -30,9 +30,17 @@ copy and the one to upload to LinkedIn or a talk slide.
 
 ## The pipeline
 
-```
-photo ──▶ face detect ──▶ subject matte ──▶ tone map ──▶ character grid ──▶ frames ──▶ encode
-         (Haar cascade)   (seeded GrabCut)   (CLAHE)      (measured ramp)   (timeline)
+```mermaid
+flowchart LR
+    P[Photograph] --> F["Face detect<br/>Haar cascade"]
+    F --> M["Subject matte<br/>seeded GrabCut"]
+    F --> C["Crop<br/>head + shoulders"]
+    M --> T["Tone map<br/>CLAHE + unsharp"]
+    C --> T
+    T --> G["Character grid<br/>measured ink ramp"]
+    G --> R["Frames<br/>timeline + CRT effects"]
+    B["Boot log<br/>terminal.py"] --> R
+    R --> E["GIF · WebP · MP4"]
 ```
 
 **`core.py`** — photo to grid.
