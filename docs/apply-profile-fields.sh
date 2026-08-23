@@ -7,7 +7,7 @@
 # Then run this script. It is idempotent — safe to re-run.
 set -euo pipefail
 
-BIO="Building retrieval-augmented systems and the backends around them — RAG, FastAPI, Spring Boot, pgvector. MCA student in Pune."
+BIO="Building retrieval-augmented systems and the backends around them — RAG, FastAPI, Spring Boot, pgvector. MCA graduate, Pune."
 
 gh api -X PATCH user \
   -f name="Hemant Kushwaha" \

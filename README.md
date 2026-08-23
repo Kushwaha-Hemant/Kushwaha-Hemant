@@ -14,8 +14,8 @@ decisions mid-conversation, and the auth, storage, container and deployment
 layers that make any of it usable by someone other than me.
 
 Six systems below, each built end-to-end: the retrieval or build pipeline **and**
-the application around it. Currently an MCA student in Pune, India, working
-toward backend and AI engineering roles.
+the application around it. MCA graduate based in Pune, India — open to backend
+and AI engineering roles.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Kushwaha--Hemant-181717?style=flat-square&logo=github)](https://github.com/Kushwaha-Hemant)
 [![Portfolio](https://img.shields.io/badge/Portfolio-hemantkushwaha.in-0891b2?style=flat-square&logo=googlechrome&logoColor=white)](https://hemantkushwaha.in)
@@ -265,9 +265,9 @@ flowchart LR
 ## Currently
 
 - Improving retrieval quality — chunking strategy, hybrid search weighting, and **evaluating** RAG output rather than eyeballing it
-- Adding test coverage and CI across the projects above
 - Bringing Spendee's Android and Spring Boot halves to feature parity
-- Studying system design and DSA alongside the MCA coursework
+- Deepening system design — the part that only shows up once something is running
+- Open to backend and AI engineering roles
 
 <div align="center">
 
