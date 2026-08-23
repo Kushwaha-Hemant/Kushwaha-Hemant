@@ -16,3 +16,7 @@ gh api -X PATCH user \
   -f location="Pune, India" \
   -F hireable=true \
   --jq '{name, bio, blog, location, hireable}'
+
+# Social links shown under the avatar. POST is additive and GitHub de-duplicates,
+# so re-running does not create a second entry.
+gh api -X POST user/social_accounts   -f 'account_urls[]=https://www.linkedin.com/in/kushwaha-hemant/'   -f 'account_urls[]=https://hemantkushwaha.in'   --jq '.[] | "  \(.provider): \(.url)"'

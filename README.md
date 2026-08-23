@@ -19,16 +19,11 @@ toward backend and AI engineering roles.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Kushwaha--Hemant-181717?style=flat-square&logo=github)](https://github.com/Kushwaha-Hemant)
 [![Portfolio](https://img.shields.io/badge/Portfolio-hemantkushwaha.in-0891b2?style=flat-square&logo=googlechrome&logoColor=white)](https://hemantkushwaha.in)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-kushwaha--hemant-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/kushwaha-hemant/)
+[![Email](https://img.shields.io/badge/Connect%40HemantKushwaha.in-EA4335?style=flat-square&logo=maildotru&logoColor=white)](mailto:Connect@HemantKushwaha.in)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
-
-<!-- ── REPLACE THESE TWO, THEN MOVE THEM UP INTO THE BADGE ROW ABOVE ──────────
-     Swap YOUR-HANDLE and YOUR-EMAIL for the real values. They are kept
-     commented out so the live profile never shows a dead link.
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/YOUR-HANDLE)
-[![Email](https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:YOUR-EMAIL)
-─────────────────────────────────────────────────────────────────────────── -->
 
 ---
 
