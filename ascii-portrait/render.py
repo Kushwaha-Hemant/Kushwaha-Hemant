@@ -429,13 +429,19 @@ BANNER_PHASES = {
     "glitch": (0.80, 0.86),
     "settle": (0.86, 1.00),
 }
-B_REVEAL = [(0.00, 0.0), (0.50, 0.0), (0.80, 1.0), (1.00, 1.0)]
-B_DENSITY = [(0.00, 0.05), (0.48, 0.70), (0.80, 0.70), (1.00, 0.10)]
-B_FIELD = [(0.00, 0.0), (0.44, 0.0), (0.52, 1.0), (1.00, 1.0)]
-B_BOOT = [(0.00, 0.0), (0.05, 1.0), (0.42, 1.0), (0.50, 0.0), (1.00, 0.0)]
-B_INFO = [(0.00, 0.0), (0.08, 1.0), (0.42, 1.0), (0.52, 0.30), (1.00, 0.30)]
-B_RAIN = [(0.00, 0.0), (0.07, 1.0), (0.80, 1.0), (1.00, 0.72)]
-RAIN_FREEZE = 0.82   # fraction of the timeline after which the rain stops moving
+# The reveal finishes at 0.62 and the remaining 38% is an ambient tail: the
+# portrait is held while the rain keeps running. That tail exists because a GIF
+# or WebP carries a single loop flag for the whole file -- there is no way to
+# freeze one layer and loop another. Looping would replay the boot sequence and
+# re-reveal the portrait, so the file plays once and the tail is how long the
+# ambient motion visibly survives after the reveal completes.
+B_REVEAL = [(0.00, 0.0), (0.44, 0.0), (0.62, 1.0), (1.00, 1.0)]
+B_DENSITY = [(0.00, 0.05), (0.42, 0.70), (0.62, 0.70), (0.70, 0.10), (1.00, 0.10)]
+B_FIELD = [(0.00, 0.0), (0.38, 0.0), (0.46, 1.0), (1.00, 1.0)]
+B_BOOT = [(0.00, 0.0), (0.04, 1.0), (0.36, 1.0), (0.44, 0.0), (1.00, 0.0)]
+# Identity block: fades in as the boot log leaves, then persists to the end.
+B_INFO = [(0.00, 0.0), (0.38, 0.0), (0.48, 1.0), (1.00, 1.0)]
+B_RAIN = [(0.00, 0.0), (0.06, 1.0), (1.00, 1.0)]
 
 
 def render_banner(grid, ramp, cfg, rain, side_w, boot_draw=None, info_draw=None,
@@ -472,7 +478,6 @@ def render_banner(grid, ramp, cfg, rain, side_w, boot_draw=None, info_draw=None,
     # was also the single largest contributor to file size, since every cell in
     # the frame changed on every frame of the resolve.
     side_damp = np.clip(1.0 - side_w, 0.0, 1.0).astype(np.float32) ** 1.15
-    freeze_frame = int(RAIN_FREEZE * (cfg.frames - 1))
 
     frames = []
     last = max(cfg.frames - 1, 1)
@@ -488,10 +493,9 @@ def render_banner(grid, ramp, cfg, rain, side_w, boot_draw=None, info_draw=None,
 
         rain_a = curve(t, B_RAIN)
         if rain_a > 0.001:
-            # Past RAIN_FREEZE the field holds its position, so the closing
-            # frames are near-identical and compress to almost nothing.
-            rf = min(f, freeze_frame)
-            r_idx, r_int = rain.frame(rf)
+            # The rain never freezes: ambient motion continuing after the
+            # portrait completes is the point of the tail.
+            r_idx, r_int = rain.frame(f)
             gate = side_w if rain_gate is None else side_w * rain_gate(t)
             r_int = r_int * gate * rain_a
             hotter = r_int > cell
@@ -508,8 +512,9 @@ def render_banner(grid, ramp, cfg, rain, side_w, boot_draw=None, info_draw=None,
 
         ia = curve(t, B_INFO)
         if ia > 0.002 and info_draw is not None:
-            p = float(np.clip((t - 0.08) / 0.34, 0.0, 1.0))
-            img = np.maximum(img, info_draw(W, H, p, 1.0) * ia)
+            # Types itself in over the handoff, then stays fully drawn.
+            prog = float(np.clip((t - 0.38) / 0.16, 0.0, 1.0))
+            img = np.maximum(img, info_draw(W, H, prog, 1.0) * ia)
 
         gl = 0.0
         if gs <= t < ge:

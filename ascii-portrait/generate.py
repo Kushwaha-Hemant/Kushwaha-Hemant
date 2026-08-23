@@ -57,8 +57,10 @@ PRESETS = {
     # finished portrait; everything else here loops.
     "banner": dict(
         out_size=(1800, 600),
-        cols=120, cell=(5, 9), frames=72, fps=12.5,
-        head_room=2.10, face_bias=0.09,
+        cols=132, cell=(5, 9), frames=104, fps=12.5,
+        # Tighter crop than the square cuts: the portrait now owns 36.7% of the
+        # width, so the face can fill more of its box without being cropped.
+        head_room=1.95, face_bias=0.0, crop_shift_x=0.07,
         banner_cols=360,
         play_once=True, hold_last_ms=6000,
         # GitHub renders the hero at roughly 880px wide, so 1800 is already 2x.
@@ -181,8 +183,13 @@ def build_banner(p: dict, image: str, outdir: Path, formats=None, preview=False)
     sc = core.SourceConfig(
         path=image, cols=p["cols"], head_room=p["head_room"],
         face_bias=p["face_bias"], bg_level=0.02, cell_aspect=cw / ch,
+        crop_shift_x=p.get("crop_shift_x", 0.0),
     )
-    grid = banner.compose(core.build_grid(sc, CHARSET, aspect=1.0), bcfg)
+    # Crop to the portrait BOX's aspect, not to a square. The box is 660x603, so
+    # a square crop would leave the sides of it empty.
+    rows_target = p["out_size"][1] // ch
+    box_aspect = (p["cols"] * cw) / float(rows_target * ch)
+    grid = banner.compose(core.build_grid(sc, CHARSET, aspect=box_aspect), bcfg)
     rows, cols = grid["rows"], grid["cols"]
     W, H = cols * cw, rows * ch
 
@@ -195,16 +202,18 @@ def build_banner(p: dict, image: str, outdir: Path, formats=None, preview=False)
 
     rain = banner.CodeRain(rows, cols, len(CHARSET), bcfg)
     sw = banner.side_weight(rows, cols, bcfg)
-    band = p["cols"] * cw
 
-    boot_cfg = terminal.BootConfig(left_frac=0.5, font_frac=0.040)
+    # Both text layers now share one left-hand band. left_frac=0 keeps them
+    # flush with each other so the block reads as a single column.
+    tx0 = bcfg.text_x * cw
+    band = bcfg.text_cols * cw
+
+    boot_cfg = terminal.BootConfig(left_frac=0.0, font_frac=0.040)
     info_cfg = terminal.BootConfig(
-        script=[(l, "dim" if l.startswith(" ") or not l else "norm")
-                for l in banner.INFO_LINES],
-        left_frac=0.5, font_frac=0.034, bar_cells=0,
+        script=list(banner.IDENT_LINES), left_frac=0.0, font_frac=0.043, bar_cells=0,
     )
-    boot_layout = terminal.plan(boot_cfg, W, H, x0=0, width=band)
-    info_layout = terminal.plan(info_cfg, W, H, x0=W - band, width=band)
+    boot_layout = terminal.plan(boot_cfg, W, H, x0=tx0, width=band)
+    info_layout = terminal.plan(info_cfg, W, H, x0=tx0, width=band)
 
     def boot_draw(w, h, prog, blink):
         return terminal.draw(boot_layout, boot_cfg, w, h, prog, blink)

@@ -23,13 +23,17 @@ import numpy as np
 @dataclass
 class BannerConfig:
     total_cols: int = 360           # 360 * 5px = 1800px
-    portrait_cols: int = 120        # centred; sides get 120 each
-    rain_density: float = 0.40      # fraction of columns carrying a stream
+    portrait_cols: int = 132        # 132 * 5px = 660px = 36.7% of the width
+    portrait_x: int = 200           # left edge in cells; 342..360 stays as margin
+    text_x: int = 36                # 180px in = 10% left margin
+    text_cols: int = 140            # text band ends at col 176, 34 cols clear of
+                                    # the portrait so the two never touch
+    rain_density: float = 0.52      # fraction of columns carrying a stream
     rain_tail: int = 16             # trail length in cells
     rain_speed: tuple = (0.30, 1.05)# cells per frame, per-column range
     rain_bright: float = 0.60       # peak intensity of a stream head
     ambient_floor: float = 0.10     # dim static field so gaps never read as empty
-    transition_cols: int = 45       # how quickly the rain reaches full strength
+    transition_cols: int = 26       # how quickly the rain reaches full strength
     rain_hold: int = 4              # frames a rain position persists. Every cell
                                     # moving on every frame is what turns a
                                     # full-width animation into a 10MB GIF.
@@ -37,18 +41,18 @@ class BannerConfig:
 
 
 def side_weight(rows: int, cols: int, cfg: BannerConfig) -> np.ndarray:
-    """1.0 at the outer edges, ~0 across the portrait, smooth in between.
+    """1.0 away from the portrait, ~0 across it, smooth in between.
 
-    Without this the ambient field would butt up against the portrait and the
-    composition would read as a square photo with two decorated margins.
+    Keyed off the portrait's actual span rather than the canvas centre, so the
+    falloff follows the portrait wherever it is placed. Without it the ambient
+    field would butt up against the portrait's edge and the composition would
+    read as two unrelated blocks.
     """
     x = np.arange(cols, dtype=np.float32)
-    centre = cols / 2.0
-    half_portrait = cfg.portrait_cols / 2.0
-    # Normalising over the whole remaining half makes the falloff so gradual
-    # that the rain stays dim everywhere. A short, fixed transition instead
-    # reaches full strength just outside the face and holds it to the edge.
-    d = (np.abs(x - centre) - half_portrait) / float(max(cfg.transition_cols, 1))
+    px0 = float(cfg.portrait_x)
+    px1 = float(cfg.portrait_x + cfg.portrait_cols)
+    outside = np.maximum(px0 - x, x - px1)          # >0 only beyond the portrait
+    d = outside / float(max(cfg.transition_cols, 1))
     w = np.clip(d, 0.0, 1.0)
     w = w * w * (3.0 - 2.0 * w)                     # smoothstep
     return np.repeat(w[None, :], rows, axis=0).astype(np.float32)
@@ -104,7 +108,7 @@ def compose(portrait: dict, cfg: BannerConfig) -> dict:
     """
     rows = portrait["rows"]
     cols = cfg.total_cols
-    x0 = (cols - portrait["cols"]) // 2
+    x0 = cfg.portrait_x
 
     out = dict(portrait)
     out["cols"] = cols
@@ -170,16 +174,13 @@ BOOT_LINES = [
     "> system ready",
 ]
 
-INFO_LINES = [
-    "NAME    hemant kushwaha",
-    "ROLE    ai & backend engineer",
-    "",
-    "STACK   python  fastapi",
-    "        typescript  kotlin",
-    "        postgres  pgvector",
-    "",
-    "FOCUS   retrieval-augmented",
-    "        systems",
-    "",
-    "STATUS  open to roles",
+# The state the banner settles into once the boot log has finished. Ordered by
+# weight: name, then identity, then supporting detail.
+IDENT_LINES = [
+    ("HEMANT KUSHWAHA", "title"),
+    ("AI & Backend Engineer", "sub"),
+    ("", "norm"),
+    ("STACK   python · fastapi · kotlin", "dim"),
+    ("FOCUS   retrieval-augmented systems", "dim"),
+    ("STATUS  open to roles", "norm"),
 ]
