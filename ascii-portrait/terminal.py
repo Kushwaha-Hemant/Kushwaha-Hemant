@@ -61,9 +61,15 @@ def _fit(cfg: BootConfig, W: int, H: int):
     return font, size, adv
 
 
-def plan(cfg: BootConfig, W: int, H: int):
-    """Expand the script into per-character reveal fractions in [0, 1]."""
-    font, size, adv = _fit(cfg, W, H)
+def plan(cfg: BootConfig, W: int, H: int, x0: int = 0, width: int | None = None):
+    """Expand the script into per-character reveal fractions in [0, 1].
+
+    ``x0``/``width`` confine the block to a horizontal band, which is what lets
+    the wide banner put the boot log on the left and the system info on the
+    right instead of centring both on top of the portrait.
+    """
+    band = W if width is None else width
+    font, size, adv = _fit(cfg, band, H)
     lines = []
     total_chars = 0
     for text, kind in cfg.script:
@@ -91,10 +97,10 @@ def plan(cfg: BootConfig, W: int, H: int):
     widest = max(
         (cfg.bar_cells + 6) if l["kind"] == "bar" else len(l["text"]) for l in lines
     )
-    x0 = (W - widest * adv) * cfg.left_frac
+    origin = x0 + (band - widest * adv) * cfg.left_frac
 
     return {"font": font, "size": size, "adv": adv, "lines": lines,
-            "line_h": line_h, "x0": x0, "y0": y0}
+            "line_h": line_h, "x0": origin, "y0": y0}
 
 
 def draw(layout: dict, cfg: BootConfig, W: int, H: int, p: float,

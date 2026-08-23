@@ -28,6 +28,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import banner
 import core
 import encode
 import render
@@ -52,11 +53,26 @@ FONT_REGULAR = "C:/Windows/Fonts/consola.ttf"
 FONT_BOLD = "C:/Windows/Fonts/consolab.ttf"
 
 PRESETS = {
+    # Wide hero for the GitHub profile README. Plays once and stops on the
+    # finished portrait; everything else here loops.
+    "banner": dict(
+        out_size=(1800, 600),
+        cols=120, cell=(5, 9), frames=72, fps=12.5,
+        head_room=2.10, face_bias=0.09,
+        banner_cols=360,
+        play_once=True, hold_last_ms=6000,
+        # GitHub renders the hero at roughly 880px wide, so 1800 is already 2x.
+        # The WebP keeps full resolution; the GIF fallback is written at 1200
+        # wide, which is still 1.4x the display size and about half the bytes.
+        gif_size=(1200, 400),
+        gif_colors=48, webp_quality=64, crf=22,
+        formats=("gif", "webp", "mp4"),
+    ),
     "square": dict(
         out_size=(600, 600),
         cols=120, cell=(5, 9), frames=64, fps=12.5,
         head_room=2.10, face_bias=0.09,
-        gif_colors=16, webp_quality=64, crf=22,
+        gif_colors=48, webp_quality=64, crf=22,
         formats=("webp", "gif", "mp4"),
     ),
     "wide": dict(
@@ -157,8 +173,95 @@ def compose_wide(src_grid: dict, cols_w: int, pad_left: int) -> dict:
     return out
 
 
+def build_banner(p: dict, image: str, outdir: Path, formats=None, preview=False):
+    """Wide 3:1 hero: portrait centred, code rain and terminal text either side."""
+    cw, ch = p["cell"]
+    bcfg = banner.BannerConfig(total_cols=p["banner_cols"], portrait_cols=p["cols"])
+
+    sc = core.SourceConfig(
+        path=image, cols=p["cols"], head_room=p["head_room"],
+        face_bias=p["face_bias"], bg_level=0.02, cell_aspect=cw / ch,
+    )
+    grid = banner.compose(core.build_grid(sc, CHARSET, aspect=1.0), bcfg)
+    rows, cols = grid["rows"], grid["cols"]
+    W, H = cols * cw, rows * ch
+
+    rc = render.RenderConfig(
+        cell_w=cw, cell_h=ch, frames=p["frames"], fps=p["fps"], stops=PALETTE,
+        vignette=0.28, scanline=0.10, bloom=0.34, edge_threshold=2.0,
+        grain=0.008, grain_static=True, shimmer=0.0, noise_hold=3,
+        glitch_amount=0.40,
+    )
+
+    rain = banner.CodeRain(rows, cols, len(CHARSET), bcfg)
+    sw = banner.side_weight(rows, cols, bcfg)
+    band = p["cols"] * cw
+
+    boot_cfg = terminal.BootConfig(left_frac=0.5, font_frac=0.040)
+    info_cfg = terminal.BootConfig(
+        script=[(l, "dim" if l.startswith(" ") or not l else "norm")
+                for l in banner.INFO_LINES],
+        left_frac=0.5, font_frac=0.034, bar_cells=0,
+    )
+    boot_layout = terminal.plan(boot_cfg, W, H, x0=0, width=band)
+    info_layout = terminal.plan(info_cfg, W, H, x0=W - band, width=band)
+
+    def boot_draw(w, h, prog, blink):
+        return terminal.draw(boot_layout, boot_cfg, w, h, prog, blink)
+
+    def info_draw(w, h, prog, blink):
+        return terminal.draw(info_layout, info_cfg, w, h, prog, 1.0)
+
+    ko_boot = banner.text_knockout(rows, cols, (cw, ch), boot_layout, len(boot_cfg.script))
+    ko_info = banner.text_knockout(rows, cols, (cw, ch), info_layout, len(info_cfg.script))
+
+    def rain_gate(t):
+        # The info block stays to the end, so its knockout is permanent. The
+        # boot log fades, so its knockout releases and the rain fills back in.
+        return np.minimum(ko_info, 1.0 - (1.0 - ko_boot) * render.curve(t, render.B_BOOT))
+
+    t0 = time.time()
+    frames = render.render_banner(grid, CHARSET, rc, rain, sw,
+                                  boot_draw, info_draw, rain_gate=rain_gate)
+    frames = encode.pad_to(frames, p["out_size"])
+    Wp, Hp = p["out_size"]
+    print(f"  banner {Wp}x{Hp} ({Wp/Hp:.2f}:1) {len(frames)}f @{p['fps']}fps "
+          f"({len(frames)/p['fps']:.1f}s)  render {time.time()-t0:.1f}s")
+
+    final = Image.fromarray(frames[-1])
+    final.save(outdir / "banner-final.png")
+    print(f"      png  {encode.fmt_size((outdir/'banner-final.png').stat().st_size):>9}  banner-final.png")
+    if preview:
+        return
+
+    for fmt in (formats or p["formats"]):
+        t = time.time()
+        path = outdir / f"portrait-banner.{fmt}"
+        if fmt == "gif":
+            gw, gh = p.get("gif_size", tuple(p["out_size"]))
+            src = frames
+            if (gw, gh) != tuple(p["out_size"]):
+                src = [np.asarray(Image.fromarray(fr).resize((gw, gh), Image.LANCZOS))
+                       for fr in frames]
+            # loop=None omits the Netscape extension entirely -> plays once.
+            # key_frame=-1: build the palette from the frame the viewer ends on.
+            size = encode.save_gif(src, path, p["fps"], colors=p["gif_colors"],
+                                   key_frame=-1, loop=None,
+                                   hold_last_ms=p["hold_last_ms"])
+        elif fmt == "webp":
+            size = encode.save_webp(frames, path, p["fps"], quality=p["webp_quality"],
+                                    loop=1, hold_last_ms=p["hold_last_ms"])
+        elif fmt == "mp4":
+            size = encode.save_mp4(frames, path, p["fps"], crf=p["crf"])
+        else:
+            continue
+        print(f"      {fmt:4} {encode.fmt_size(size):>9}  ({time.time()-t:.1f}s)  {path.name}")
+
+
 def build(name: str, image: str, outdir: Path, formats=None, preview=False):
     p = PRESETS[name]
+    if p.get("banner_cols"):
+        return build_banner(p, image, outdir, formats, preview)
     cw, ch = p["cell"]
     W, H = p["out_size"]
 

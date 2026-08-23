@@ -50,28 +50,48 @@ def frame_delay_ms(fps: float) -> int:
     return max(10, int(round(1000.0 / fps / 10.0)) * 10)
 
 
-def save_gif(frames, path, fps=16, colors=64, key_frame=None, dither=False):
-    """Animated GIF with one global palette shared by every frame."""
+def save_gif(frames, path, fps=16, colors=64, key_frame=None, dither=False,
+             loop=0, hold_last_ms=0):
+    """Animated GIF with one global palette shared by every frame.
+
+    ``loop=0`` repeats forever. ``loop=None`` writes **no** Netscape extension
+    at all, which is what makes a GIF play exactly once and stop on its final
+    frame -- writing ``loop=1`` instead is ambiguous, since decoders disagree on
+    whether that means one play or one repeat (i.e. two).
+
+    ``hold_last_ms`` extends the final frame. Not strictly needed for a
+    non-looping GIF, but it makes the intent explicit in the file.
+    """
     path = Path(path)
+    # Which frame the palette is built from matters more than the colour count.
+    # Defaulting to the middle frame optimises for whatever is happening
+    # mid-animation -- here that is dark noise -- and crushes the finished
+    # portrait that the viewer actually stops on.
     key = frames[key_frame if key_frame is not None else len(frames) // 2]
     pal_src = Image.fromarray(key).convert(
         "P", palette=Image.ADAPTIVE, colors=max(2, min(256, colors))
     )
     dmode = Image.FLOYDSTEINBERG if dither else Image.NONE
     imgs = [Image.fromarray(f).quantize(palette=pal_src, dither=dmode) for f in frames]
-    imgs[0].save(
-        path,
+    per = frame_delay_ms(fps)
+    durations = [per] * len(imgs)
+    if hold_last_ms:
+        durations[-1] = max(per, int(hold_last_ms))
+
+    kwargs = dict(
         save_all=True,
         append_images=imgs[1:],
-        duration=frame_delay_ms(fps),
-        loop=0,
+        duration=durations,
         optimize=True,
         disposal=1,
     )
+    if loop is not None:
+        kwargs["loop"] = loop
+    imgs[0].save(path, **kwargs)
     return path.stat().st_size
 
 
-def save_webp(frames, path, fps=16, quality=72, method=6):
+def save_webp(frames, path, fps=16, quality=72, method=6, loop=0, hold_last_ms=0):
     """Animated WebP. Far smaller than GIF at the same size, and 24-bit.
 
     Every frame carries its own ``info["duration"]``. Passing duration only as
@@ -82,17 +102,21 @@ def save_webp(frames, path, fps=16, quality=72, method=6):
     """
     path = Path(path)
     delay = int(round(1000.0 / fps))
+    durations = [delay] * len(frames)
+    if hold_last_ms:
+        durations[-1] = max(delay, int(hold_last_ms))
     imgs = []
-    for f in frames:
+    for f, d in zip(frames, durations):
         img = Image.fromarray(f)
-        img.info["duration"] = delay
+        img.info["duration"] = d
         imgs.append(img)
+    # WebP has no "omit the chunk" escape hatch: loop_count == 1 means one play.
     imgs[0].save(
         path,
         save_all=True,
         append_images=imgs[1:],
-        duration=delay,
-        loop=0,
+        duration=durations,
+        loop=loop,
         quality=quality,
         method=method,
         lossless=False,

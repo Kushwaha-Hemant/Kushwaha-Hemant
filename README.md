@@ -1,8 +1,10 @@
-<div align="center">
-
-<img src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-boot.webp" width="420" alt="A terminal boots, then reconstructs a portrait of Hemant Kushwaha out of code characters" />
-
-</div>
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/Kushwaha-Hemant/Kushwaha-Hemant/main/assets/portrait-banner.webp"
+    width="100%"
+    alt="Hemant Kushwaha — a terminal boots, then reconstructs a portrait out of code characters"
+  />
+</p>
 
 # Hi, I'm Hemant Kushwaha 👋
 

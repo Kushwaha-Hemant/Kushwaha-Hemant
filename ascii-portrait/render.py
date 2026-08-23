@@ -413,3 +413,107 @@ def render_boot_loop(grid: dict, ramp: str, cfg: RenderConfig, boot_draw=None):
             gl = float(np.sin(np.pi * u) ** 1.5) * cfg.glitch_amount
         frames.append(comp(img, gl, f))
     return frames
+
+
+# --- wide banner, plays once ---------------------------------------------
+# Unlike the looping cuts above, this timeline never returns to darkness: the
+# reveal curve rises and stays at 1, so the last frame is the finished portrait.
+# Nothing here fades out, because the GIF is written without a loop extension
+# and the viewer simply stops on whatever the final frame is.
+BANNER_PHASES = {
+    "black": (0.00, 0.03),
+    "type": (0.03, 0.34),
+    "ready": (0.34, 0.42),
+    "handoff": (0.42, 0.50),
+    "resolve": (0.50, 0.80),
+    "glitch": (0.80, 0.86),
+    "settle": (0.86, 1.00),
+}
+B_REVEAL = [(0.00, 0.0), (0.50, 0.0), (0.80, 1.0), (1.00, 1.0)]
+B_DENSITY = [(0.00, 0.05), (0.48, 0.70), (0.80, 0.70), (1.00, 0.10)]
+B_FIELD = [(0.00, 0.0), (0.44, 0.0), (0.52, 1.0), (1.00, 1.0)]
+B_BOOT = [(0.00, 0.0), (0.05, 1.0), (0.42, 1.0), (0.50, 0.0), (1.00, 0.0)]
+B_INFO = [(0.00, 0.0), (0.08, 1.0), (0.42, 1.0), (0.52, 0.30), (1.00, 0.30)]
+B_RAIN = [(0.00, 0.0), (0.07, 1.0), (0.80, 1.0), (1.00, 0.72)]
+RAIN_FREEZE = 0.82   # fraction of the timeline after which the rain stops moving
+
+
+def render_banner(grid, ramp, cfg, rain, side_w, boot_draw=None, info_draw=None,
+                  rain_gate=None):
+    """Render the wide banner once, ending on the completed portrait.
+
+    ``rain`` is a banner.CodeRain and ``side_w`` the falloff mask that keeps the
+    ambient field off the face. Both cover the full width, which is what stops
+    the sides reading as separate panels.
+    """
+    rows, cols = grid["rows"], grid["cols"]
+    atlas = build_atlas(ramp, cfg)
+    target, comp_ratio = resolve_target(grid, ramp, cfg, atlas)
+    base_int = 0.30 + 0.70 * grid["luma"]
+    base_int = np.clip(
+        base_int * comp_ratio * (1.0 + 0.18 * grid["mag"]), 0.0, 2.2
+    ).astype(np.float32)
+    # Zero the brightness floor outside the portrait so the rain is not
+    # out-competed by empty cells holding a space glyph.
+    occupied = grid.get("occupied")
+    if occupied is not None:
+        base_int = (base_int * occupied).astype(np.float32)
+
+    settle = build_settle(grid, cfg)
+    noise_idx, noise_life = build_noise_stack(grid, len(ramp), cfg)
+
+    H, W = rows * cfg.cell_h, cols * cfg.cell_w
+    comp = Compositor(cfg, H, W)
+    t0, t1 = BANNER_PHASES["type"]
+    gs, ge = BANNER_PHASES["glitch"]
+    # The character field that resolves into the face is confined to the middle,
+    # falling to nothing at the edges. Letting it churn across all 1800px looked
+    # unfocused -- the portrait should assemble where the portrait is -- and it
+    # was also the single largest contributor to file size, since every cell in
+    # the frame changed on every frame of the resolve.
+    side_damp = np.clip(1.0 - side_w, 0.0, 1.0).astype(np.float32) ** 1.15
+    freeze_frame = int(RAIN_FREEZE * (cfg.frames - 1))
+
+    frames = []
+    last = max(cfg.frames - 1, 1)
+    for f in range(cfg.frames):
+        t = f / last                      # final frame lands exactly on t = 1.0
+        idx, inten, show, fieldv = cell_state(
+            f, curve(t, B_REVEAL), curve(t, B_DENSITY), curve(t, B_FIELD),
+            target, base_int, settle, noise_idx, noise_life, cfg,
+        )
+        settled = settle < curve(t, B_REVEAL)
+        inten = np.where(settled, inten, inten * side_damp)
+        cell = (inten * show.astype(np.float32) * fieldv).astype(np.float32)
+
+        rain_a = curve(t, B_RAIN)
+        if rain_a > 0.001:
+            # Past RAIN_FREEZE the field holds its position, so the closing
+            # frames are near-identical and compress to almost nothing.
+            rf = min(f, freeze_frame)
+            r_idx, r_int = rain.frame(rf)
+            gate = side_w if rain_gate is None else side_w * rain_gate(t)
+            r_int = r_int * gate * rain_a
+            hotter = r_int > cell
+            idx = np.where(hotter, r_idx, idx)
+            cell = np.maximum(cell, r_int)
+
+        img = blit(atlas, idx, cell)
+
+        ba = curve(t, B_BOOT)
+        if ba > 0.002 and boot_draw is not None:
+            p = float(np.clip((t - t0) / max(t1 - t0, 1e-6), 0.0, 1.0))
+            blink = (f % CURSOR_FRAMES) / float(CURSOR_FRAMES)
+            img = np.maximum(img, boot_draw(W, H, p, blink) * ba)
+
+        ia = curve(t, B_INFO)
+        if ia > 0.002 and info_draw is not None:
+            p = float(np.clip((t - 0.08) / 0.34, 0.0, 1.0))
+            img = np.maximum(img, info_draw(W, H, p, 1.0) * ia)
+
+        gl = 0.0
+        if gs <= t < ge:
+            u = (t - gs) / max(ge - gs, 1e-6)
+            gl = float(np.sin(np.pi * u) ** 1.5) * cfg.glitch_amount
+        frames.append(comp(img, gl, f))
+    return frames
