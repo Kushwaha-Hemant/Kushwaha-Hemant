@@ -35,104 +35,175 @@ toward backend and AI engineering roles.
 
 ## Selected Projects
 
-### RAGForge — self-hosted document intelligence
+<table>
+<tr>
+<td width="50%" valign="top">
 
-Upload private documents, ask questions, get answers **with citations**.
-Multi-tenant from the ground up: Clerk-authenticated, per-user isolation, and
-per-project retrieval settings stored as data rather than config.
+### 🔍 RAGForge
 
-**Tech:** Python • FastAPI • PostgreSQL + pgvector • Next.js • Clerk • asyncpg
+[![CI](https://github.com/Kushwaha-Hemant/RAGForge-Document_Search/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/RAGForge-Document_Search/actions/workflows/ci.yml)
 
-Retrieval is hybrid, not just vector search — a dense HNSW index and a Postgres
+**Self-hosted document intelligence.** Upload private documents, ask questions, get answers *with citations*. Multi-tenant from the ground up.
+
+`Python` `FastAPI` `PostgreSQL` `pgvector` `Next.js` `Clerk`
+
+<details>
+<summary><b>Engineering detail</b></summary>
+
+Retrieval is hybrid, not just vector search. A dense HNSW index and a Postgres
 `tsvector`/GIN index are queried in parallel and fused with **weighted Reciprocal
 Rank Fusion**, written generically over N ranked lists rather than hardcoded to
-two, with optional cross-encoder reranking on top. Embeddings are L2-normalised
-at write time so the index can use inner product (`vector_ip_ops`) instead of
-cosine. Answers stream over SSE from either Claude or OpenAI behind one provider
-interface.
+two, with optional cross-encoder reranking on top.
 
-[→ Repository](https://github.com/Kushwaha-Hemant/RAGForge-Document_Search)
+Embeddings are L2-normalised at write time so the index can use inner product
+(`vector_ip_ops`) instead of cosine — cheaper distance, identical ranking.
 
-### InterviewPilot AI — adaptive mock interviewer
+</details>
 
-Not a fixed question list. Every answer is scored against a structured rubric,
-and a **server-side rule engine** — not the model — decides whether to probe
-deeper, drop a hint, or move on.
+**[Repository →](https://github.com/Kushwaha-Hemant/RAGForge-Document_Search)**
 
-**Tech:** Python • FastAPI • SQLAlchemy • PostgreSQL • OpenAI • WebSockets • Next.js
+</td>
+<td width="50%" valign="top">
 
-The interesting decision is treating the LLM as an advisor rather than an
-authority: `engine._enforce_rules()` takes the model's suggested next action and
-overrides it when it violates interview policy, so a hallucinated control
-decision cannot derail a session. Question generation and the final coach report
-run on deliberately different models, and the provider is an ABC so the OpenAI
-SDK is never imported outside its implementation. Sessions stream over WebSocket
-and end in a generated PDF report.
+### 🎙️ InterviewPilot AI
 
-[→ Repository](https://github.com/Kushwaha-Hemant/Interviewpilot_AI)
+[![CI](https://github.com/Kushwaha-Hemant/Interviewpilot_AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/Interviewpilot_AI/actions/workflows/ci.yml)
 
-### DevFlow — self-hosted CI/CD control plane
+**Adaptive mock interviewer.** Not a fixed question list — every answer is scored against a rubric, and a rule engine decides what happens next.
 
-Clones GitHub repositories over the REST API, runs user-defined build stages as
-real child processes, builds and deploys Docker images through the Engine
-socket, and streams every log line to the browser.
+`Python` `FastAPI` `SQLAlchemy` `PostgreSQL` `OpenAI` `WebSockets`
 
-**Tech:** TypeScript • Express • Prisma • PostgreSQL • Docker • Socket.IO • React
+<details>
+<summary><b>Engineering detail</b></summary>
 
-The integrations are real rather than mocked, and the fiddly parts show it:
-Docker's Engine API prefixes every log line with an 8-byte header when there is
-no TTY, so the log stream is **demultiplexed frame by frame**; container CPU
+The LLM is an advisor, not an authority. `engine._enforce_rules()` takes the
+model's suggested next action and **overrides it** when it violates interview
+policy, so a hallucinated control decision cannot derail a session.
+
+The provider is an ABC, so the OpenAI SDK is never imported outside its own
+implementation. Question generation and the final coach report deliberately run
+on different models.
+
+</details>
+
+**[Repository →](https://github.com/Kushwaha-Hemant/Interviewpilot_AI)**
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### ⚙️ DevFlow
+
+[![CI](https://github.com/Kushwaha-Hemant/Devflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/Devflow/actions/workflows/ci.yml)
+
+**Self-hosted CI/CD control plane.** Clones repos, runs build stages as real child processes, and drives the Docker Engine socket directly.
+
+`TypeScript` `Express` `Prisma` `PostgreSQL` `Docker` `Socket.IO`
+
+<details>
+<summary><b>Engineering detail</b></summary>
+
+The integrations are real rather than mocked, and the fiddly parts show it.
+Without a TTY, Docker's Engine API prefixes every log line with an 8-byte
+header, so the stream is **demultiplexed frame by frame**. Container CPU
 percentage is computed the way `docker stats` actually computes it, scaling
-`cpuDelta/systemDelta` by online CPU count; and build logs carry a monotonic
-per-build sequence number so a client that reconnects mid-build can resume
-without gaps or duplicates.
+`cpuDelta/systemDelta` by online CPU count.
 
-[→ Repository](https://github.com/Kushwaha-Hemant/Devflow)
+Build logs carry a monotonic per-build sequence number, so a client that
+reconnects mid-build resumes without gaps or duplicates.
 
-### ResumePilot — RAG resume analyser
+</details>
 
-Scores a resume against a job description, surfaces skill gaps, generates
-interview questions, and exports a PDF report. The LLM provider is pluggable —
-OpenAI or Gemini behind one pipeline.
+**[Repository →](https://github.com/Kushwaha-Hemant/Devflow)**
 
-**Tech:** Python • Streamlit • LangChain • ChromaDB • sentence-transformers • pydantic
+</td>
+<td width="50%" valign="top">
 
-Each resume gets its own ChromaDB collection so retrieval never bleeds between
-candidates, and the model's reply is parsed through a **three-tier JSON salvage**
-— fenced block, then raw parse, then repair — before being validated into a
-20-field pydantic model, because an LLM asked for JSON returns almost-JSON often
-enough to matter.
+### 📄 ResumePilot
 
-[→ Repository](https://github.com/Kushwaha-Hemant/ResumePilot)
+[![CI](https://github.com/Kushwaha-Hemant/ResumePilot/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/ResumePilot/actions/workflows/ci.yml)
 
-### DevVerse AI — procedural 3D web experiment
+**RAG resume analyser.** Scores a resume against a job description, surfaces skill gaps, and exports a PDF report.
 
-A workspace you explore instead of a page you scroll. Click an object, the
-camera flies to it, and it opens a real section of the site. Built to see how
-far a browser scene can go with no 3D assets at all.
+`Python` `Streamlit` `LangChain` `ChromaDB` `pydantic`
 
-**Tech:** TypeScript • Next.js 16 • React Three Fiber • Tailwind v4 • Cloudflare Workers
+<details>
+<summary><b>Engineering detail</b></summary>
 
-Every mesh and texture in the scene is **generated procedurally in code** — there
-is no `.glb` asset anywhere in the repo. Quality tier is chosen by reading the
-actual GPU driver string from a throwaway WebGL context, every random value comes
-from a seeded PRNG so the scene is identical on every load, and the render loop
-stops entirely when the hero is scrolled out of view.
+Each resume gets its **own ChromaDB collection**, so retrieval never bleeds
+between candidates.
 
-[Live](https://devverse-ai.kushwaha-hemant.workers.dev) · [→ Repository](https://github.com/Kushwaha-Hemant/Devverse_AI)
+The model's reply passes through a three-tier JSON salvage — fenced block, then
+raw parse, then repair — before being validated into a 20-field pydantic model,
+because an LLM asked for JSON returns almost-JSON often enough to matter.
 
-### Spendee — AI personal finance platform
+</details>
 
-A monorepo pairing a native Android app with a Spring Boot backend, built to
-practise modularisation at a scale where it starts to matter.
+**[Repository →](https://github.com/Kushwaha-Hemant/ResumePilot)**
 
-**Tech:** Kotlin • Jetpack Compose • Spring Boot • Java • Gradle
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-The Android side is split across 16 Gradle modules with a shared design system.
-*Actively in development — the repository README separates what is built today
+### 🌌 DevVerse AI
+
+[![CI](https://github.com/Kushwaha-Hemant/Devverse_AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/Devverse_AI/actions/workflows/ci.yml)
+
+**Procedural 3D web experiment.** A workspace you explore instead of a page you scroll — built with no 3D assets at all.
+
+`TypeScript` `Next.js 16` `React Three Fiber` `Cloudflare Workers`
+
+<details>
+<summary><b>Engineering detail</b></summary>
+
+Every mesh and texture in the scene is **generated in code** — there is no
+`.glb` file anywhere in the repository.
+
+Quality tier is chosen by reading the actual GPU driver string from a throwaway
+WebGL context. Every random value comes from a seeded PRNG, so the scene is
+identical on every load, and the render loop stops entirely when the hero is
+scrolled out of view.
+
+</details>
+
+**[Live ↗](https://devverse-ai.kushwaha-hemant.workers.dev)** · **[Repository →](https://github.com/Kushwaha-Hemant/Devverse_AI)**
+
+</td>
+<td width="50%" valign="top">
+
+### 💸 Spendee
+
+[![CI](https://github.com/Kushwaha-Hemant/Spendee/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushwaha-Hemant/Spendee/actions/workflows/ci.yml)
+
+**AI personal finance platform.** A monorepo pairing a native Android app with a Spring Boot backend.
+
+`Kotlin` `Jetpack Compose` `Spring Boot` `Java` `Gradle`
+
+<details>
+<summary><b>Engineering detail</b></summary>
+
+The Android side is split across **16 Gradle modules** with a shared design
+system, built to practise modularisation at a scale where it starts to matter.
+
+The JWT layer refuses to start on a secret shorter than 256 bits, or on the
+development default outside a dev profile — a length check alone would not catch
+the second case.
+
+*Actively in development. The repository README separates what is built today
 from what is still scaffolded.*
 
-[→ Repository](https://github.com/Kushwaha-Hemant/Spendee)
+</details>
+
+**[Repository →](https://github.com/Kushwaha-Hemant/Spendee)**
+
+</td>
+</tr>
+</table>
+
+<sub>Every badge above is live. All six repositories run tests, lint and build on
+every push — click any badge for the run.</sub>
 
 ---
 
