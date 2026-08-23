@@ -18,7 +18,7 @@ the application around it. Currently an MCA student in Pune, India, working
 toward backend and AI engineering roles.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Kushwaha--Hemant-181717?style=flat-square&logo=github)](https://github.com/Kushwaha-Hemant)
-[![Portfolio](https://img.shields.io/badge/Portfolio-DevVerse_AI-0891b2?style=flat-square&logo=cloudflare&logoColor=white)](https://devverse-ai.kushwaha-hemant.workers.dev)
+[![Portfolio](https://img.shields.io/badge/Portfolio-hemantkushwaha.in-0891b2?style=flat-square&logo=googlechrome&logoColor=white)](https://hemantkushwaha.in)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
@@ -110,10 +110,11 @@ enough to matter.
 
 [→ Repository](https://github.com/Kushwaha-Hemant/ResumePilot)
 
-### DevVerse AI — 3D interactive portfolio
+### DevVerse AI — procedural 3D web experiment
 
 A workspace you explore instead of a page you scroll. Click an object, the
-camera flies to it, and it opens a real section of the site.
+camera flies to it, and it opens a real section of the site. Built to see how
+far a browser scene can go with no 3D assets at all.
 
 **Tech:** TypeScript • Next.js 16 • React Three Fiber • Tailwind v4 • Cloudflare Workers
 
@@ -132,7 +133,7 @@ practise modularisation at a scale where it starts to matter.
 
 **Tech:** Kotlin • Jetpack Compose • Spring Boot • Java • Gradle
 
-The Android side is split across 14 Gradle modules with a shared design system.
+The Android side is split across 16 Gradle modules with a shared design system.
 *Actively in development — the repository README separates what is built today
 from what is still scaffolded.*
 

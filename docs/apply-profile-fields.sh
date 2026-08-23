@@ -12,7 +12,7 @@ BIO="Building retrieval-augmented systems and the backends around them — RAG, 
 gh api -X PATCH user \
   -f name="Hemant Kushwaha" \
   -f bio="$BIO" \
-  -f blog="https://devverse-ai.kushwaha-hemant.workers.dev" \
+  -f blog="https://hemantkushwaha.in" \
   -f location="Pune, India" \
   -F hireable=true \
   --jq '{name, bio, blog, location, hireable}'
